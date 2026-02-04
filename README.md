@@ -67,7 +67,7 @@ npm run test:headed
 - **Frontend**: Vanilla HTML5, CSS3, JavaScript (ES6+)
 - **Testing**: Playwright
 - **Animation**: requestAnimationFrame
-- **Collision**: 원형 충돌 감지 (AABB 기반)
+- **Collision**: 원형 충돌 감지
 
 ## 📁 프로젝트 구조
 
