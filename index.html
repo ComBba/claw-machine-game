@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Claw Machine 2D</title>
+    <style>
+        :root {
+            --neon-pink: #ff2a6d;
+            --neon-blue: #05d9e8;
+            --neon-purple: #7700a6;
+            --neon-green: #00ff41;
+            --neon-yellow: #ffee00;
+            --dark-bg: #01012b;
+            --cabinet-color: #1a1a2e;
+        }
+
+        * {
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            background-image: 
+                linear-gradient(rgba(5, 217, 232, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(5, 217, 232, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Header / Score */
+        #header {
+            width: 90%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid var(--neon-pink);
+            border-radius: 10px;
+            box-shadow: 0 0 15px var(--neon-pink);
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px var(--neon-blue);
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+
+        #score-display {
+            font-size: 1.3rem;
+            font-family: 'Courier New', monospace;
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        /* 2D Game Area */
+        #game-container {
+            position: relative;
+            width: 90%;
+            height: 55%;
+            background: var(--cabinet-color);
+            border-radius: 15px;
+            border: 3px solid var(--neon-blue);
+            box-shadow: 0 0 30px rgba(5, 217, 232, 0.3), inset 0 0 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        /* Side View Game Area */
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+        }
+
+        /* Top Rail */
+        #rail {
+            position: absolute;
+            top: 10px;
+            left: 5%;
+            right: 5%;
+            height: 8px;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue), var(--neon-purple));
+            border-radius: 4px;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        /* Floor */
+        #floor {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(180deg, #2a2a3e 0%, #1a1a2e 100%);
+            border-top: 3px solid var(--neon-purple);
+        }
+
+        #floor::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, var(--neon-purple) 0px, var(--neon-purple) 20px, transparent 20px, transparent 30px);
+            opacity: 0.5;
+        }
+
+        /* Prize Chute */
+        #chute {
+            position: absolute;
+            bottom: 0;
+            left: 10px;
+            width: 70px;
+            height: 50px;
+            background: linear-gradient(180deg, #000 0%, #1a1a1a 100%);
+            border: 2px dashed var(--neon-pink);
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+        
+        #chute::after {
+            content: 'PRIZE';
+            color: var(--neon-pink);
+            font-weight: bold;
+            font-size: 0.7rem;
+            text-shadow: 0 0 5px var(--neon-pink);
+        }
+
+        /* Claw Assembly - 2D Side View */
+        #claw-assembly {
+            position: absolute;
+            top: 18px;
+            width: 50px;
+            height: 60px;
+            z-index: 10;
+            transition: left 0.1s linear;
+        }
+
+        #claw-cable {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 3px;
+            background: linear-gradient(180deg, #888, #aaa);
+            box-shadow: 0 0 5px rgba(255,255,255,0.3);
+        }
+
+        #claw-body {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 50px;
+            /* claw-body는 cable의 끝에 위치 - JS에서 top 업데이트 */
+        }
+
+        /* SVG Claw Styling - 2D Side View */
+        .claw-svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .claw-motor {
+            fill: #333;
+            stroke: var(--neon-blue);
+            stroke-width: 2;
+            filter: drop-shadow(0 0 5px var(--neon-blue));
+        }
+
+        .claw-arm {
+            fill: none;
+            stroke: var(--neon-blue);
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: transform 0.3s ease;
+            transform-origin: 20px 25px;
+        }
+
+        .claw-finger {
+            fill: none;
+            stroke: var(--neon-pink);
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: transform 0.3s ease;
+            transform-origin: 20px 35px;
+        }
+
+        /* Claw States */
+        .claw-open .claw-finger.left { transform: rotate(-25deg); }
+        .claw-open .claw-finger.right { transform: rotate(25deg); }
+        .claw-closed .claw-finger.left { transform: rotate(10deg); }
+        .claw-closed .claw-finger.right { transform: rotate(-10deg); }
+
+        /* Dolls - 2D */
+        .doll {
+            position: absolute;
+            font-size: 2.2rem;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 3;
+            filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5));
+            transition: none;
+        }
+
+        .doll.caught {
+            z-index: 11;
+            transition: none !important; /* 잡힌 인형은 위치 고정 - transition 제거 */
+            transform: none !important; /* 틀어짐 방지 */
+        }
+
+        .doll.falling {
+            transition: top 0.5s ease-in, left 0.5s ease-out;
+        }
+
+        /* Controls */
+        #controls-area {
+            width: 90%;
+            height: 22%;
+            margin-top: 10px;
+            background: rgba(26, 26, 46, 0.9);
+            border-radius: 15px;
+            border: 2px solid var(--neon-purple);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            gap: 30px;
+        }
+
+        /* Directional Controls */
+        .controls-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .d-pad {
+            position: relative;
+            width: 130px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .d-btn {
+            width: 55px;
+            height: 45px;
+            background: linear-gradient(180deg, #3a3a4e 0%, #2a2a3e 100%);
+            border: 2px solid var(--neon-blue);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--neon-blue);
+            font-size: 1.3rem;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #1a1a2e, 0 0 10px rgba(5, 217, 232, 0.3);
+            transition: all 0.1s;
+        }
+
+        .d-btn:active, .d-btn.active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #1a1a2e, 0 0 15px var(--neon-blue);
+            background: linear-gradient(180deg, #4a4a5e 0%, #3a3a4e 100%);
+        }
+
+        /* Action Button */
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, var(--neon-pink), #cc0055);
+            border: 3px solid #ff6b9d;
+            box-shadow: 0 6px 0 #990033, 0 0 20px rgba(255, 42, 109, 0.5);
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            transition: all 0.1s;
+            animation: pulse 2s infinite;
+        }
+
+        .action-btn:active, .action-btn.active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #990033, 0 0 25px var(--neon-pink);
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 6px 0 #990033, 0 0 20px rgba(255, 42, 109, 0.5); }
+            50% { box-shadow: 0 6px 0 #990033, 0 0 40px rgba(255, 42, 109, 0.8); }
+        }
+
+        /* Messages */
+        #message {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 20px 30px;
+            border: 2px solid var(--neon-green);
+            border-radius: 15px;
+            color: white;
+            font-size: 1.4rem;
+            text-align: center;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 0 30px var(--neon-green);
+        }
+
+        /* Confetti */
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            z-index: 100;
+        }
+
+        /* Instructions */
+        .instructions {
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #555;
+        }
+
+        /* Arrow Indicators on Game Area */
+        .move-hint {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            color: rgba(5, 217, 232, 0.3);
+            pointer-events: none;
+            animation: blink 1.5s infinite;
+        }
+
+        .move-hint.left { left: 10px; }
+        .move-hint.right { right: 10px; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="header">
+            <h1>🎮 NEON CLAW</h1>
+            <div id="score-display">SCORE: 000</div>
+        </div>
+
+        <div id="game-container">
+            <div id="game-area">
+                <div id="rail"></div>
+                
+                <div class="move-hint left">◀</div>
+                <div class="move-hint right">▶</div>
+
+                <div id="claw-assembly" style="left: 50%;">
+                    <div id="claw-cable" style="height: 20px;"></div>
+                    <div id="claw-body" class="claw-open">
+                        <svg class="claw-svg" viewBox="0 0 40 50">
+                            <rect class="claw-motor" x="8" y="0" width="24" height="20" rx="3" />
+                            <line class="claw-arm left" x1="12" y1="20" x2="8" y2="35" />
+                            <line class="claw-arm right" x1="28" y1="20" x2="32" y2="35" />
+                            <path class="claw-finger left" d="M 8 35 Q 5 42 12 45" />
+                            <path class="claw-finger right" d="M 32 35 Q 35 42 28 45" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div id="dolls-container"></div>
+
+                <div id="chute"></div>
+                <div id="floor"></div>
+            </div>
+            
+            <div id="message"></div>
+        </div>
+
+        <div id="controls-area">
+            <div class="controls-group">
+                <div class="control-label">Move Claw</div>
+                <div class="d-pad">
+                    <div class="d-btn d-left" data-key="ArrowLeft">◀</div>
+                    <div class="d-btn d-right" data-key="ArrowRight">▶</div>
+                </div>
+            </div>
+            
+            <div class="action-group">
+                <div class="control-label">Grab</div>
+                <div class="action-btn" id="grab-btn">GRAB</div>
+            </div>
+        </div>
+        
+        <div class="instructions">◀ ▶ Move • Space to Grab</div>
+    </div>
+
+    <script>
+        // ==========================================
+        // GAME STATE (2D Version)
+        // ==========================================
+        window.state = {
+            score: parseInt(sessionStorage.getItem('clawScore')) || 0,
+            claw: {
+                x: 50,      // Percentage 0-100 (horizontal position)
+                y: 20,      // Pixels down from rail (cable length)
+                minY: 20,   // Minimum cable length (up position)
+                maxY: 0,    // Will be calculated based on floor
+                state: 'idle', // idle, dropping, grabbing, rising, returning, releasing
+                holding: null
+            },
+            dolls: [],
+            lastTime: 0
+        };
+
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const config = {
+            // Movement speeds
+            moveSpeed: 0.8,      // Horizontal movement speed (% per frame)
+            dropSpeed: 3,        // Dropping speed (pixels per frame)
+            riseSpeed: 2.5,      // Rising speed (pixels per frame)
+            returnSpeed: 0.6,    // Return to chute speed
+            
+            // Game area dimensions
+            clawWidth: 50,       // Claw assembly width in pixels
+            clawHeight: 60,      // Claw assembly height in pixels
+            railHeight: 18,      // Rail position from top
+            floorHeight: 60,     // Floor height from bottom
+            chuteWidth: 70,      // Prize chute width
+            
+            // Hitbox settings
+            grabRadius: 40,      // Grab detection radius in pixels
+            
+            // Dolls
+            emojis: ['🧸', '🐻', '🐰', '🐱', '🐶', '🦊', '🐼', '🐨', '🐸', '🦄', '🐷', '🐹'],
+            dollSize: 45,
+            dollCount: 10
+        };
+
+        // ==========================================
+        // DOM ELEMENTS
+        // ==========================================
+        const els = {
+            clawAssembly: document.getElementById('claw-assembly'),
+            clawCable: document.getElementById('claw-cable'),
+            clawBody: document.getElementById('claw-body'),
+            dollsContainer: document.getElementById('dolls-container'),
+            score: document.getElementById('score-display'),
+            message: document.getElementById('message'),
+            gameArea: document.getElementById('game-area'),
+            grabBtn: document.getElementById('grab-btn'),
+            floor: document.getElementById('floor')
+        };
+
+        // ==========================================
+        // INPUT STATE
+        // ==========================================
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            Space: false
+        };
+
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+        function getGameWidth() {
+            return els.gameArea.clientWidth;
+        }
+
+        function getGameHeight() {
+            return els.gameArea.clientHeight;
+        }
+
+        function percentToPixels(percent) {
+            return (percent / 100) * getGameWidth();
+        }
+
+        function pixelsToPercent(pixels) {
+            return (pixels / getGameWidth()) * 100;
+        }
+
+        function getFloorY() {
+            return getGameHeight() - config.floorHeight;
+        }
+
+        function getClawX() {
+            return percentToPixels(state.claw.x);
+        }
+
+        function getClawY() {
+            // Claw Y position is rail height + cable length
+            return config.railHeight + state.claw.y;
+        }
+
+        function getClawCenter() {
+            return {
+                x: getClawX() + config.clawWidth / 2,
+                y: getClawY() + config.clawHeight - 5 // Finger tips
+            };
+        }
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        function init() {
+            calculateBounds();
+            spawnDolls(config.dollCount);
+            updateScoreDisplay();
+            setupControls();
+            setupResizeHandler();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function calculateBounds() {
+            const gameHeight = getGameHeight();
+            // Maximum Y is when claw fingers touch the floor
+            state.claw.maxY = (gameHeight - config.floorHeight) - config.railHeight - config.clawHeight + 10;
+        }
+
+        function setupResizeHandler() {
+            window.addEventListener('resize', () => {
+                calculateBounds();
+                render();
+            });
+        }
+
+        function updateScoreDisplay() {
+            els.score.textContent = 'SCORE: ' + state.score.toString().padStart(3, '0');
+        }
+
+        // ==========================================
+        // DOLL MANAGEMENT
+        // ==========================================
+        function spawnDolls(count) {
+            els.dollsContainer.innerHTML = '';
+            state.dolls = [];
+            
+            for (let i = 0; i < count; i++) {
+                createDoll(i);
+            }
+        }
+
+        function createDoll(id) {
+            const gameWidth = getGameWidth();
+            const floorY = getFloorY();
+            
+            // Random X position (keep away from edges and chute)
+            const minX = config.chuteWidth + 20;
+            const maxX = gameWidth - config.dollSize - 10;
+            const x = minX + Math.random() * (maxX - minX);
+            
+            const doll = {
+                id: id,
+                emoji: config.emojis[Math.floor(Math.random() * config.emojis.length)],
+                x: x,
+                y: floorY - config.dollSize + 5, // Sit on floor
+                el: document.createElement('div')
+            };
+
+            doll.el.className = 'doll';
+            doll.el.dataset.dollId = id;
+            doll.el.textContent = doll.emoji;
+            doll.el.style.left = x + 'px';
+            doll.el.style.top = doll.y + 'px';
+            
+            els.dollsContainer.appendChild(doll.el);
+            state.dolls.push(doll);
+        }
+
+        // ==========================================
+        // CONTROLS
+        // ==========================================
+        function setupControls() {
+            // Keyboard controls
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'ArrowLeft') keys.ArrowLeft = true;
+                if (e.code === 'ArrowRight') keys.ArrowRight = true;
+                if (e.code === 'Space' && !e.repeat) {
+                    keys.Space = true;
+                    attemptGrab();
+                }
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'ArrowLeft') keys.ArrowLeft = false;
+                if (e.code === 'ArrowRight') keys.ArrowRight = false;
+                if (e.code === 'Space') keys.Space = false;
+            });
+
+            // Touch/Mouse controls for buttons
+            setupButtonControls();
+        }
+
+        function setupButtonControls() {
+            // Direction buttons
+            const leftBtn = document.querySelector('.d-left');
+            const rightBtn = document.querySelector('.d-right');
+            
+            const addButtonListeners = (btn, key) => {
+                const start = (e) => {
+                    e.preventDefault();
+                    keys[key] = true;
+                    btn.classList.add('active');
+                };
+                const end = (e) => {
+                    e.preventDefault();
+                    keys[key] = false;
+                    btn.classList.remove('active');
+                };
+
+                btn.addEventListener('mousedown', start);
+                btn.addEventListener('touchstart', start);
+                btn.addEventListener('mouseup', end);
+                btn.addEventListener('touchend', end);
+                btn.addEventListener('mouseleave', end);
+            };
+            
+            addButtonListeners(leftBtn, 'ArrowLeft');
+            addButtonListeners(rightBtn, 'ArrowRight');
+
+            // Grab button
+            const grabStart = (e) => {
+                e.preventDefault();
+                els.grabBtn.classList.add('active');
+                attemptGrab();
+            };
+            const grabEnd = (e) => {
+                e.preventDefault();
+                els.grabBtn.classList.remove('active');
+            };
+
+            els.grabBtn.addEventListener('mousedown', grabStart);
+            els.grabBtn.addEventListener('touchstart', grabStart);
+            els.grabBtn.addEventListener('mouseup', grabEnd);
+            els.grabBtn.addEventListener('touchend', grabEnd);
+        }
+
+        function attemptGrab() {
+            if (state.claw.state === 'idle') {
+                state.claw.state = 'dropping';
+                playSound('drop');
+            }
+        }
+
+        // ==========================================
+        // GAME LOOP
+        // ==========================================
+        function gameLoop(timestamp) {
+            const dt = timestamp - state.lastTime;
+            state.lastTime = timestamp;
+
+            updateClaw();
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateClaw() {
+            const claw = state.claw;
+
+            // IDLE: Horizontal movement only
+            if (claw.state === 'idle') {
+                // Left arrow: move left (decrease X)
+                if (keys.ArrowLeft) {
+                    claw.x = Math.max(2, claw.x - config.moveSpeed);
+                }
+                // Right arrow: move right (increase X) - FIXED!
+                if (keys.ArrowRight) {
+                    claw.x = Math.min(98 - pixelsToPercent(config.clawWidth), claw.x + config.moveSpeed);
+                }
+            }
+
+            // DROPPING: Move down
+            if (claw.state === 'dropping') {
+                claw.y += config.dropSpeed;
+                
+                // Check if reached floor or doll level
+                if (claw.y >= claw.maxY) {
+                    claw.y = claw.maxY;
+                    claw.state = 'grabbing';
+                    
+                    // Short delay then check collision
+                    setTimeout(() => {
+                        checkCollision();
+                        claw.state = 'rising';
+                    }, 300);
+                }
+            }
+
+            // RISING: Move up
+            if (claw.state === 'rising') {
+                claw.y -= config.riseSpeed;
+                
+                if (claw.y <= claw.minY) {
+                    claw.y = claw.minY;
+                    claw.state = 'returning';
+                }
+                
+                // Update held doll position
+                if (claw.holding) {
+                    updateHeldDoll();
+                }
+            }
+
+            // RETURNING: Move to chute
+            if (claw.state === 'returning') {
+                const targetX = pixelsToPercent(config.chuteWidth / 2);
+                const dx = targetX - claw.x;
+                
+                if (Math.abs(dx) > 1) {
+                    claw.x += Math.sign(dx) * config.returnSpeed;
+                } else {
+                    claw.x = targetX;
+                    claw.state = 'releasing';
+                    setTimeout(dropPrize, 400);
+                }
+                
+                // Update held doll position
+                if (claw.holding) {
+                    updateHeldDoll();
+                }
+            }
+        }
+
+        // ==========================================
+        // COLLISION DETECTION
+        // ==========================================
+        function checkCollision() {
+            const clawCenter = getClawCenter();
+            let bestTarget = null;
+            let minDistance = Infinity;
+
+            // Find closest doll within grab radius
+            state.dolls.forEach(doll => {
+                if (!doll.el.parentNode) return;
+                
+                const dollCenter = {
+                    x: doll.x + config.dollSize / 2,
+                    y: doll.y + config.dollSize / 2
+                };
+                
+                const dx = clawCenter.x - dollCenter.x;
+                const dy = clawCenter.y - dollCenter.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < config.grabRadius && distance < minDistance) {
+                    minDistance = distance;
+                    bestTarget = doll;
+                }
+            });
+
+            // Close claw animation
+            els.clawBody.classList.remove('claw-open');
+            els.clawBody.classList.add('claw-closed');
+
+            // Catch or miss
+            if (bestTarget) {
+                state.claw.holding = bestTarget;
+                bestTarget.el.classList.add('caught');
+                playSound('catch');
+            } else {
+                // Open claw after a delay if missed
+                setTimeout(() => {
+                    els.clawBody.classList.remove('claw-closed');
+                    els.clawBody.classList.add('claw-open');
+                }, 800);
+            }
+        }
+
+        function updateHeldDoll() {
+            const doll = state.claw.holding;
+            if (!doll) return;
+
+            const clawCenter = getClawCenter();
+
+            // 인형을 집게 중심에 정확히 고정 (가로/세로 중앙 정렬)
+            const dollX = clawCenter.x - config.dollSize / 2;
+            const dollY = clawCenter.y - config.dollSize / 2; // 중심에 정확히 맞춤
+
+            doll.el.style.left = dollX + 'px';
+            doll.el.style.top = dollY + 'px';
+            doll.el.style.zIndex = 20;
+        }
+
+        function dropPrize() {
+            // Open claw
+            els.clawBody.classList.remove('claw-closed');
+            els.clawBody.classList.add('claw-open');
+
+            if (state.claw.holding) {
+                const doll = state.claw.holding;
+                state.claw.holding = null;
+                
+                // Animate doll falling into chute
+                doll.el.classList.add('falling');
+                doll.el.style.top = (getGameHeight() - 30) + 'px';
+                doll.el.style.left = (config.chuteWidth / 2 - config.dollSize / 2) + 'px';
+                doll.el.style.opacity = '0';
+                
+                setTimeout(() => {
+                    // Update score
+                    state.score += 100;
+                    sessionStorage.setItem('clawScore', state.score);
+                    updateScoreDisplay();
+                    
+                    showMessage(`🎉 GOT ${doll.emoji}! +100`);
+                    createConfetti();
+                    playSound('win');
+                    
+                    // Remove doll and spawn new one
+                    setTimeout(() => {
+                        doll.el.remove();
+                        const index = state.dolls.indexOf(doll);
+                        if (index > -1) state.dolls.splice(index, 1);
+                        createDoll(Date.now());
+                    }, 500);
+                }, 400);
+            } else {
+                showMessage("❌ MISSED!");
+            }
+
+            // Return to idle
+            setTimeout(() => {
+                state.claw.state = 'idle';
+                hideMessage();
+            }, 1500);
+        }
+
+        // ==========================================
+        // RENDERING
+        // ==========================================
+        function render() {
+            // Update claw position
+            els.clawAssembly.style.left = state.claw.x + '%';
+            els.clawCable.style.height = state.claw.y + 'px';
+            // 집게 몸첼도 줄과 함께 남아가도록 위치 업데이트
+            els.clawBody.style.top = state.claw.y + 'px';
+        }
+
+        function showMessage(text) {
+            els.message.textContent = text;
+            els.message.style.display = 'block';
+        }
+
+        function hideMessage() {
+            els.message.style.display = 'none';
+        }
+
+        // ==========================================
+        // EFFECTS
+        // ==========================================
+        function createConfetti() {
+            const colors = ['#ff2a6d', '#05d9e8', '#00ff41', '#ffee00', '#7700a6'];
+            
+            for (let i = 0; i < 25; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = (20 + Math.random() * 60) + '%';
+                confetti.style.top = '40%';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                
+                // Random animation
+                const duration = 0.8 + Math.random() * 0.7;
+                const delay = Math.random() * 0.2;
+                confetti.style.animation = `none`;
+                confetti.style.transition = `all ${duration}s ease-out ${delay}s`;
+                
+                els.gameArea.appendChild(confetti);
+                
+                // Trigger animation
+                setTimeout(() => {
+                    confetti.style.top = (60 + Math.random() * 30) + '%';
+                    confetti.style.left = (10 + Math.random() * 80) + '%';
+                    confetti.style.opacity = '0';
+                    confetti.style.transform = `rotate(${Math.random() * 720}deg) scale(0.5)`;
+                }, 10);
+                
+                setTimeout(() => confetti.remove(), (duration + delay) * 1000 + 100);
+            }
+        }
+
+        // ==========================================
+        // AUDIO
+        // ==========================================
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            
+            if (type === 'drop') {
+                // Descending whir
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.6);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            } else if (type === 'catch') {
+                // Success clack
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(500, now + 0.1);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'win') {
+                // Victory fanfare
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+        }
+
+        // ==========================================
+        // START GAME
+        // ==========================================
+        init();
+    </script>
+</body>
+</html>
