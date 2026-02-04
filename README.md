@@ -29,7 +29,7 @@ npm install
 
 ```bash
 # 브라우저에서 직접 열기
-open index.html
+# index.html 파일을 브라우저에서 직접 여세요.
 
 # 또는 로컬 서버 사용
 npx serve .
