@@ -114,4 +114,4 @@ MIT License
 
 ---
 
-Made with 💜 by [ComBba](https://github.com/ComBba) & AI Agents 🤖
+Made with 💜 by [@ComBba](https://github.com/ComBba) & AI Agents 🤖
