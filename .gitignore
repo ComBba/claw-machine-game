@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Playwright test results
+test-results/
+playwright-report/
+
+# OpenCode / Ralph
+.ralph/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
